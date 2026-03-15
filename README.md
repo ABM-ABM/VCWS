@@ -9,7 +9,7 @@ import {
   Image as ImageIcon, X, Eye, Users, ChevronDown
 } from 'lucide-react';
 
-// Конфигурация Firebase
+// Firebase configuration
 const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 let app, auth, db;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'vcws-bug-tracker-v1';
@@ -22,10 +22,10 @@ try {
     db = getFirestore(app);
   }
 } catch (e) {
-  console.error("Ошибка инициализации Firebase:", e);
+  console.error("Firebase Error:", e);
 }
 
-// Иконка дракона (белая, компактная)
+// Custom Dragon Icon (White, compact)
 const DragonFace = ({ size = 20, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M7 3l-2 5 3 2" />
@@ -58,7 +58,7 @@ export default function App() {
   const [replyText, setReplyText] = useState({});
   const [openChats, setOpenChats] = useState({});
 
-  // Функция для получения цвета категории (Исправлено: добавлено определение функции)
+  // Get category colors
   const getCategoryColor = (cat) => {
     switch(cat) {
       case 'UI': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
@@ -73,7 +73,7 @@ export default function App() {
     localStorage.setItem('vcws_bugs', JSON.stringify(newBugs));
   };
 
-  // 1. Авторизация
+  // 1. Auth
   useEffect(() => {
     if (auth) {
       const initAuth = async () => {
@@ -83,7 +83,7 @@ export default function App() {
           } else {
             await signInAnonymously(auth);
           }
-        } catch (e) { console.error("Ошибка авторизации", e); }
+        } catch (e) { console.error("Auth Error", e); }
       };
       initAuth();
       const unsub = onAuthStateChanged(auth, setUser);
@@ -91,7 +91,7 @@ export default function App() {
     }
   }, []);
 
-  // 2. Загрузка данных
+  // 2. Load Data
   useEffect(() => {
     if (db && user) {
       setIsCloudActive(true);
@@ -173,7 +173,7 @@ export default function App() {
       }
       setTitle(''); setDesc(''); setRobloxName(''); setProofImage(null);
     } catch (error) {
-      console.error("Ошибка при отправке:", error);
+      console.error("Submit Error:", error);
     }
   };
 
@@ -221,7 +221,7 @@ export default function App() {
 
     const msg = {
       text: txt.trim(),
-      author: isAdmin ? '👨‍💻 Разработчик' : 'Игрок',
+      author: isAdmin ? '👨‍💻 Developer' : 'Player',
       isAdminReply: isAdmin,
       timestamp: Date.now()
     };
@@ -281,13 +281,13 @@ export default function App() {
         @keyframes cardIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       `}</style>
 
-      {/* ФОН */}
+      {/* BACKGROUND */}
       <div className="fixed inset-0 overflow-hidden z-0">
         <div className="grid-layer"></div>
         {isAdmin && <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 blur-[120px] rounded-full animate-pulse"></div>}
       </div>
 
-      {/* ШАПКА */}
+      {/* HEADER */}
       <header className="glass sticky top-0 z-50 border-b shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -304,34 +304,34 @@ export default function App() {
           </div>
 
           <div className="hidden lg:flex gap-6">
-            <div className="text-center"><p className="text-[10px] text-gray-500 font-bold uppercase">Всего</p><p className="text-lg font-black">{bugs.length}</p></div>
-            <div className="text-center"><p className="text-[10px] text-gray-500 font-bold uppercase">Посетители</p><p className="text-lg font-black text-blue-400">{siteViews}</p></div>
+            <div className="text-center"><p className="text-[10px] text-gray-500 font-bold uppercase">Total</p><p className="text-lg font-black">{bugs.length}</p></div>
+            <div className="text-center"><p className="text-[10px] text-gray-500 font-bold uppercase">Visitors</p><p className="text-lg font-black text-blue-400">{siteViews}</p></div>
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="relative flex-1 md:w-64">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input 
-                type="text" placeholder="Поиск..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-black/40 border border-white/10 rounded-xl text-sm focus:border-cyan-500 outline-none transition-all"
               />
             </div>
             {isAdmin ? (
-              <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl font-bold text-xs hover:bg-red-500/30 transition-all">ВЫЙТИ</button>
+              <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl font-bold text-xs hover:bg-red-500/30 transition-all">LOGOUT</button>
             ) : (
               <button onClick={() => setShowAdminLogin(!showAdminLogin)} className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all"><Lock size={18}/></button>
             )}
           </div>
         </div>
 
-        {/* ПИН-КОД */}
+        {/* PIN CODE DROPDOWN */}
         {showAdminLogin && !isAdmin && (
           <div className="absolute top-full right-4 mt-2 p-5 glass rounded-2xl shadow-2xl w-72 card-anim">
-            <p className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Доступ Разработчика</p>
+            <p className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Admin Access</p>
             <form onSubmit={(e) => {
               e.preventDefault();
               if (adminPin === '20030092331223473') { setIsAdmin(true); setShowAdminLogin(false); setAdminPin(''); }
-              else { alert('PIN неверный'); setAdminPin(''); }
+              else { alert('Invalid PIN'); setAdminPin(''); }
             }} className="flex gap-2">
               <input 
                 type="password" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="••••"
@@ -345,39 +345,39 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         
-        {/* ФОРМА (Слева) */}
+        {/* FORM (Left) */}
         <div className="lg:col-span-4">
           <div className="glass p-6 rounded-3xl border border-white/5 sticky top-28 shadow-2xl">
             <h2 className="text-xl font-black text-white mb-6 flex items-center gap-3">
-              <PlusCircle size={24} className="text-blue-500" /> СОЗДАТЬ РЕПОРТ
+              <PlusCircle size={24} className="text-blue-500" /> NEW REPORT
             </h2>
             <form onSubmit={sendBug} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Никнейм Roblox</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Roblox Username</label>
                 <input type="text" value={robloxName} onChange={(e) => setRobloxName(e.target.value)} placeholder="Username" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none transition-all" required />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Железо</label>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Device</label>
                   <select className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm opacity-50 cursor-not-allowed" disabled><option>PC</option></select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Тип бага</label>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Category</label>
                   <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none">
-                    <option value="Gameplay">Геймплей</option><option value="Map">Карта</option><option value="UI">Интерфейс</option><option value="Exploit">Читеры</option>
+                    <option value="Gameplay">Gameplay</option><option value="Map">Map</option><option value="UI">UI</option><option value="Exploit">Exploit</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Что случилось?</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Суть проблемы" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none" required />
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">What happened?</label>
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Brief title" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none" required />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Подробности</label>
-                <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Опишите шаги..." className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none min-h-[120px]" required />
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Details</label>
+                <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="How to reproduce?..." className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none min-h-[120px]" required />
               </div>
 
               <div className="pt-2">
@@ -389,31 +389,31 @@ export default function App() {
                 ) : (
                   <label className="flex flex-col items-center justify-center h-24 bg-black/40 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/5 hover:border-blue-500/50 transition-all">
                     <ImageIcon size={28} className="text-gray-600 mb-1" />
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Добавить пруф</span>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Add Proof</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
                   </label>
                 )}
               </div>
 
               <button type="submit" className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-black rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest">
-                ОПУБЛИКОВАТЬ
+                SUBMIT
               </button>
             </form>
           </div>
         </div>
 
-        {/* ЛЕНТА (Справа) */}
+        {/* FEED (Right) */}
         <div className="lg:col-span-8 space-y-6">
           <div className="flex gap-4 border-b border-white/5 pb-4">
-            <button onClick={() => setFilter('open')} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === 'open' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}>🔥 АКТУАЛЬНЫЕ</button>
-            <button onClick={() => setFilter('resolved')} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === 'resolved' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}>✅ ИСПРАВЛЕННЫЕ</button>
+            <button onClick={() => setFilter('open')} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === 'open' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}>🔥 OPEN</button>
+            <button onClick={() => setFilter('resolved')} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === 'resolved' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}>✅ RESOLVED</button>
           </div>
 
           <div className="space-y-4">
             {visibleBugs.length === 0 ? (
               <div className="text-center py-32 glass rounded-3xl border border-dashed border-white/10">
                 <CheckCircle2 size={64} className="mx-auto text-white/5 mb-4" />
-                <p className="text-gray-500 font-bold uppercase tracking-widest">Тут пока пусто</p>
+                <p className="text-gray-500 font-bold uppercase tracking-widest">Nothing here yet</p>
               </div>
             ) : (
               visibleBugs.map((bug, idx) => (
@@ -434,7 +434,7 @@ export default function App() {
                           <span className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-black text-gray-300 uppercase tracking-wider"><User size={12}/> {bug.author}</span>
                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getCategoryColor(bug.category)}`}>{bug.category}</span>
                           <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black text-blue-400 uppercase tracking-wider"><Eye size={12}/> {bug.views || 0}</span>
-                          <span className="text-[10px] text-gray-600 ml-auto font-bold uppercase tracking-widest italic">{new Date(bug.timestamp).toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</span>
+                          <span className="text-[10px] text-gray-600 ml-auto font-bold uppercase tracking-widest italic">{new Date(bug.timestamp).toLocaleString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
                         </div>
 
                         <h3 className={`text-xl font-black mb-2 ${bug.status === 'resolved' ? 'text-gray-500 line-through' : 'text-white'}`}>{bug.title}</h3>
@@ -448,7 +448,7 @@ export default function App() {
 
                         <div className="pt-6 border-t border-white/5">
                           <button onClick={() => setOpenChats({...openChats, [bug.id]: !openChats[bug.id]})} className="flex items-center justify-between w-full text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-colors group">
-                            <span className="flex items-center gap-2"><MessageSquare size={14}/> Обсуждение ({(bug.replies || []).length})</span>
+                            <span className="flex items-center gap-2"><MessageSquare size={14}/> Discussion ({(bug.replies || []).length})</span>
                             <div className={`transition-transform duration-300 ${openChats[bug.id] ? 'rotate-180' : ''}`}><ChevronDown size={14}/></div>
                           </button>
 
@@ -459,7 +459,7 @@ export default function App() {
                                   <div key={i} className={`p-4 rounded-2xl border transition-all ${r.isAdminReply ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                                     <div className="flex justify-between items-center mb-1.5">
                                       <span className={`text-[10px] font-black uppercase tracking-wider ${r.isAdminReply ? 'text-cyan-400' : 'text-blue-500'}`}>{r.author}</span>
-                                      <span className="text-[10px] text-gray-600 font-bold italic">{new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                      <span className="text-[10px] text-gray-600 font-bold italic">{new Date(r.timestamp).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})}</span>
                                     </div>
                                     <p className="text-sm text-gray-200">{r.text}</p>
                                   </div>
@@ -469,13 +469,13 @@ export default function App() {
                               {bug.status === 'open' ? (
                                 <div className="flex gap-2 pt-2">
                                   <input 
-                                    type="text" placeholder="Написать..." value={replyText[bug.id] || ''} onChange={(e) => setReplyText({...replyText, [bug.id]: e.target.value})}
+                                    type="text" placeholder="Type a message..." value={replyText[bug.id] || ''} onChange={(e) => setReplyText({...replyText, [bug.id]: e.target.value})}
                                     onKeyPress={(e) => e.key === 'Enter' && sendReply(bug.id, bug.replies)}
                                     className="flex-1 px-4 py-3 bg-black/60 border border-white/10 rounded-2xl text-sm focus:border-blue-600 outline-none transition-all"
                                   />
                                   <button onClick={() => sendReply(bug.id, bug.replies)} className="px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl transition-all shadow-lg active:scale-95"><ChevronRight size={20}/></button>
                                 </div>
-                              ) : <div className="text-center py-4 bg-black/30 rounded-2xl border border-white/5 text-[10px] font-black text-gray-600 uppercase tracking-widest">Чат закрыт</div>}
+                              ) : <div className="text-center py-4 bg-black/30 rounded-2xl border border-white/5 text-[10px] font-black text-gray-600 uppercase tracking-widest">Discussion closed</div>}
                             </div>
                           </div>
                         </div>
