@@ -4,12 +4,12 @@ import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged }
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, deleteDoc, setDoc, increment } from 'firebase/firestore';
 import { 
   AlertCircle, CheckCircle2, Clock, User, PlusCircle, Trash2, 
-  ShieldAlert, Filter, Monitor, Search, 
+  ShieldAlert, Monitor, Search, 
   ThumbsUp, MessageSquare, Lock, Unlock, ChevronRight, Tag,
   Image as ImageIcon, X, Eye, Users, ChevronDown
 } from 'lucide-react';
 
-// Конфигурация Firebase (заполняется автоматически в среде исполнения)
+// Конфигурация Firebase
 const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 let app, auth, db;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'vcws-bug-tracker-v1';
@@ -25,20 +25,29 @@ try {
   console.error("Ошибка инициализации Firebase:", e);
 }
 
+// Иконка дракона (белая, компактная)
+const DragonFace = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M7 3l-2 5 3 2" />
+    <path d="M17 3l2 5-3 2" />
+    <path d="M5 10l-3 4 4 2-1 5 6-2 1 4 1-4 6 2-1-5 4-2-3-4" />
+    <path d="M8 14l2-1" />
+    <path d="M16 14l-2-1" />
+    <path d="M10 18h4" />
+  </svg>
+);
+
 export default function App() {
-  // Состояния приложения
   const [user, setUser] = useState(null);
   const [bugs, setBugs] = useState([]);
-  const [filter, setFilter] = useState('open'); // По умолчанию открытые
+  const [filter, setFilter] = useState('open');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCloudActive, setIsCloudActive] = useState(false);
 
-  // Админ-панель
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPin, setAdminPin] = useState('');
 
-  // Поля формы
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [robloxName, setRobloxName] = useState('');
@@ -46,29 +55,25 @@ export default function App() {
   const [proofImage, setProofImage] = useState(null);
   const [siteViews, setSiteViews] = useState(0);
 
-  // Состояния UI
   const [replyText, setReplyText] = useState({});
   const [openChats, setOpenChats] = useState({});
 
-  // Иконка дракона (белая, уменьшенная)
-  const DragonFace = ({ size = 20, className = "" }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M7 3l-2 5 3 2" />
-      <path d="M17 3l2 5-3 2" />
-      <path d="M5 10l-3 4 4 2-1 5 6-2 1 4 1-4 6 2-1-5 4-2-3-4" />
-      <path d="M8 14l2-1" />
-      <path d="M16 14l-2-1" />
-      <path d="M10 18h4" />
-    </svg>
-  );
+  // Функция для получения цвета категории (Исправлено: добавлено определение функции)
+  const getCategoryColor = (cat) => {
+    switch(cat) {
+      case 'UI': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      case 'Exploit': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'Map': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      default: return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+    }
+  };
 
-  // Локальное хранилище (если облако недоступно)
   const saveLocalBugs = (newBugs) => {
     setBugs(newBugs);
     localStorage.setItem('vcws_bugs', JSON.stringify(newBugs));
   };
 
-  // Авторизация
+  // 1. Авторизация
   useEffect(() => {
     if (auth) {
       const initAuth = async () => {
@@ -86,32 +91,31 @@ export default function App() {
     }
   }, []);
 
-  // Загрузка данных
+  // 2. Загрузка данных
   useEffect(() => {
     if (db && user) {
       setIsCloudActive(true);
       
-      // Просмотры сайта
       const statsRef = doc(db, 'artifacts', appId, 'public', 'data', 'site_stats', 'main');
       if (!sessionStorage.getItem('vcws_viewed')) {
-        setDoc(statsRef, { views: increment(1) }, { merge: true });
+        setDoc(statsRef, { views: increment(1) }, { merge: true }).catch(console.error);
         sessionStorage.setItem('vcws_viewed', 'true');
       }
-      onSnapshot(statsRef, (snap) => {
+      
+      const unsubStats = onSnapshot(statsRef, (snap) => {
         if (snap.exists()) setSiteViews(snap.data().views || 0);
-      });
+      }, (err) => console.error("Stats Error:", err));
 
-      // Баги
       const bugsRef = collection(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2');
-      const unsub = onSnapshot(bugsRef, (snap) => {
+      const unsubBugs = onSnapshot(bugsRef, (snap) => {
         const list = [];
         snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-        list.sort((a, b) => b.timestamp - a.timestamp);
+        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         setBugs(list);
-      });
-      return () => unsub();
+      }, (err) => console.error("Bugs Error:", err));
+
+      return () => { unsubStats(); unsubBugs(); };
     } else {
-      // Режим без интернета
       const local = localStorage.getItem('vcws_bugs');
       if (local) setBugs(JSON.parse(local));
       const v = localStorage.getItem('vcws_views') || "0";
@@ -119,7 +123,6 @@ export default function App() {
     }
   }, [user]);
 
-  // Обработка фото
   const handlePhoto = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -129,8 +132,7 @@ export default function App() {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX = 800;
-        let scale = 1;
-        if (img.width > MAX) scale = MAX / img.width;
+        let scale = img.width > MAX ? MAX / img.width : 1;
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
@@ -142,7 +144,6 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // Отправка бага
   const sendBug = async (e) => {
     e.preventDefault();
     if (!title.trim() || !desc.trim() || !robloxName.trim()) return;
@@ -153,7 +154,7 @@ export default function App() {
       author: robloxName.trim(),
       device: "PC",
       category,
-      proofImage,
+      proofImage: proofImage || null,
       status: 'open',
       timestamp: Date.now(),
       upvotes: 0,
@@ -163,50 +164,57 @@ export default function App() {
       userId: user?.uid || 'anon'
     };
 
-    if (db && user) {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2'), bugData);
-    } else {
-      const local = [{ ...bugData, id: Date.now().toString() }, ...bugs];
-      saveLocalBugs(local);
+    try {
+      if (db && user) {
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2'), bugData);
+      } else {
+        const local = [{ ...bugData, id: Date.now().toString() }, ...bugs];
+        saveLocalBugs(local);
+      }
+      setTitle(''); setDesc(''); setRobloxName(''); setProofImage(null);
+    } catch (error) {
+      console.error("Ошибка при отправке:", error);
     }
-
-    setTitle(''); setDesc(''); setRobloxName(''); setProofImage(null);
   };
 
-  // Просмотр карточки
   const viewBug = async (id) => {
     if (!id || sessionStorage.getItem(`v_${id}`)) return;
     sessionStorage.setItem(`v_${id}`, 'true');
-    if (db) {
-      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id), { views: increment(1) });
-    } else {
-      saveLocalBugs(bugs.map(b => b.id === id ? {...b, views: (b.views||0)+1} : b));
+    if (db && user) {
+      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id), { 
+        views: increment(1) 
+      }).catch(console.error);
+    } else if (!db) {
+      saveLocalBugs(bugs.map(b => b.id === id ? {...b, views: (b.views || 0) + 1} : b));
     }
   };
 
-  // Лайк
   const vote = async (bug) => {
     const uid = user?.uid || 'local';
-    const voted = bug.votedUsers?.includes(uid);
+    const votedUsers = bug.votedUsers || [];
+    const voted = votedUsers.includes(uid);
+    
     let count = bug.upvotes || 0;
-    let users = bug.votedUsers || [];
+    let users = [...votedUsers];
 
     if (voted) {
-      count--;
+      count = Math.max(0, count - 1);
       users = users.filter(i => i !== uid);
     } else {
       count++;
       users.push(uid);
     }
 
-    if (db) {
-      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', bug.id), { upvotes: count, votedUsers: users });
-    } else {
+    if (db && user) {
+      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', bug.id), { 
+        upvotes: count, 
+        votedUsers: users 
+      }).catch(console.error);
+    } else if (!db) {
       saveLocalBugs(bugs.map(b => b.id === bug.id ? {...b, upvotes: count, votedUsers: users} : b));
     }
   };
 
-  // Сообщение в чат
   const sendReply = async (id, current) => {
     const txt = replyText[id];
     if (!txt?.trim()) return;
@@ -219,30 +227,39 @@ export default function App() {
     };
 
     const next = [...(current || []), msg];
-    if (db) {
-      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id), { replies: next });
-    } else {
+    if (db && user) {
+      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id), { 
+        replies: next 
+      }).catch(console.error);
+    } else if (!db) {
       saveLocalBugs(bugs.map(b => b.id === id ? {...b, replies: next} : b));
     }
     setReplyText({...replyText, [id]: ''});
   };
 
-  // Админ: Решить/Удалить
   const fix = async (id, status) => {
     const s = status === 'open' ? 'resolved' : 'open';
-    if (db) updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id), { status: s });
-    else saveLocalBugs(bugs.map(b => b.id === id ? {...b, status: s} : b));
+    if (db && user) {
+      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id), { 
+        status: s 
+      }).catch(console.error);
+    } else if (!db) {
+      saveLocalBugs(bugs.map(b => b.id === id ? {...b, status: s} : b));
+    }
   };
 
   const remove = async (id) => {
-    if (db) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id));
-    else saveLocalBugs(bugs.filter(b => b.id !== id));
+    if (db && user) {
+      deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'roblox_bugs_v2', id)).catch(console.error);
+    } else if (!db) {
+      saveLocalBugs(bugs.filter(b => b.id !== id));
+    }
   };
 
-  // Фильтрация поиска
   const visibleBugs = bugs.filter(b => {
     const f = filter === 'all' ? true : b.status === filter;
-    const s = b.title.toLowerCase().includes(searchQuery.toLowerCase()) || b.author.toLowerCase().includes(searchQuery.toLowerCase());
+    const s = (b.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+              (b.author || '').toLowerCase().includes(searchQuery.toLowerCase());
     return f && s;
   });
 
@@ -256,8 +273,7 @@ export default function App() {
         .glass { background: rgba(17, 18, 20, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
         .admin-mode .glass { background: rgba(10, 20, 35, 0.4); backdrop-filter: blur(24px) saturate(160%); border: 1px solid rgba(6, 182, 212, 0.2); border-top-color: rgba(6, 182, 212, 0.5); }
         
-        .bg-grid { position: absolute; inset: -100%; width: 300%; height: 300%; pointer-events: none; }
-        .grid-layer { position: absolute; inset: 0; background-size: 50px 50px; background-image: linear-gradient(to right, rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(59, 130, 246, 0.05) 1px, transparent 1px); animation: pulse 10s infinite alternate; }
+        .grid-layer { position: absolute; inset: 0; background-size: 50px 50px; background-image: linear-gradient(to right, rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(59, 130, 246, 0.05) 1px, transparent 1px); animation: pulse 10s infinite alternate; pointer-events: none; }
         .admin-mode .grid-layer { background-image: linear-gradient(to right, rgba(6, 182, 212, 0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(6, 182, 212, 0.15) 1px, transparent 1px); }
         @keyframes pulse { 0% { transform: scale(1); opacity: 0.3; } 100% { transform: scale(1.1) translate(1%, 1%); opacity: 0.6; } }
         
@@ -296,7 +312,7 @@ export default function App() {
             <div className="relative flex-1 md:w-64">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input 
-                type="text" placeholder="Поиск по архиву..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                type="text" placeholder="Поиск..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-black/40 border border-white/10 rounded-xl text-sm focus:border-cyan-500 outline-none transition-all"
               />
             </div>
@@ -315,7 +331,7 @@ export default function App() {
             <form onSubmit={(e) => {
               e.preventDefault();
               if (adminPin === '20030092331223473') { setIsAdmin(true); setShowAdminLogin(false); setAdminPin(''); }
-              else alert('PIN неверный');
+              else { alert('PIN неверный'); setAdminPin(''); }
             }} className="flex gap-2">
               <input 
                 type="password" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="••••"
@@ -356,7 +372,7 @@ export default function App() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Что случилось?</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Напр: Пропал инвентарь" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none" required />
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Суть проблемы" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl text-sm focus:border-blue-500 outline-none" required />
               </div>
 
               <div className="space-y-1">
@@ -367,7 +383,7 @@ export default function App() {
               <div className="pt-2">
                 {proofImage ? (
                   <div className="relative rounded-2xl overflow-hidden border border-blue-500/50 card-anim">
-                    <img src={proofImage} className="w-full h-32 object-cover" />
+                    <img src={proofImage} className="w-full h-32 object-cover" alt="Proof" />
                     <button type="button" onClick={() => setProofImage(null)} className="absolute top-2 right-2 p-1.5 bg-red-500/80 text-white rounded-lg"><X size={16} /></button>
                   </div>
                 ) : (
@@ -406,16 +422,14 @@ export default function App() {
                   
                   <div className="p-6">
                     <div className="flex flex-col sm:flex-row gap-6">
-                      {/* Лайки */}
                       <div className="flex sm:flex-col items-center gap-2 p-2 bg-black/40 rounded-2xl border border-white/5 shrink-0 h-fit">
-                        <button onClick={() => vote(bug)} className={`p-2 rounded-xl transition-all ${bug.votedUsers?.includes(user?.uid||'local') ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500 hover:text-white'}`}>
-                          <ThumbsUp size={20} fill={bug.votedUsers?.includes(user?.uid||'local') ? 'currentColor' : 'none'} />
+                        <button onClick={() => vote(bug)} className={`p-2 rounded-xl transition-all ${bug.votedUsers?.includes(user?.uid || 'local') ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500 hover:text-white'}`}>
+                          <ThumbsUp size={20} fill={bug.votedUsers?.includes(user?.uid || 'local') ? 'currentColor' : 'none'} />
                         </button>
                         <span className="text-lg font-black text-white">{bug.upvotes || 0}</span>
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        {/* Бейджи */}
                         <div className="flex flex-wrap items-center gap-3 mb-3">
                           <span className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-black text-gray-300 uppercase tracking-wider"><User size={12}/> {bug.author}</span>
                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getCategoryColor(bug.category)}`}>{bug.category}</span>
@@ -427,23 +441,22 @@ export default function App() {
                         <p className="text-gray-400 text-sm leading-relaxed mb-6 italic">"{bug.description}"</p>
 
                         {bug.proofImage && (
-                          <div className="mb-6 group relative rounded-2xl overflow-hidden border border-white/10 w-fit">
-                            <img src={bug.proofImage} className="max-h-72 w-auto object-contain cursor-zoom-in group-hover:scale-105 transition-transform duration-500" onClick={() => window.open(bug.proofImage, '_blank')} />
+                          <div className="mb-6 group relative rounded-2xl overflow-hidden border border-white/10 w-fit max-w-full">
+                            <img src={bug.proofImage} className="max-h-72 w-auto object-contain cursor-zoom-in group-hover:scale-105 transition-transform duration-500" alt="Proof" onClick={() => window.open(bug.proofImage, '_blank')} />
                           </div>
                         )}
 
-                        {/* ЧАТ */}
                         <div className="pt-6 border-t border-white/5">
                           <button onClick={() => setOpenChats({...openChats, [bug.id]: !openChats[bug.id]})} className="flex items-center justify-between w-full text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-colors group">
-                            <span className="flex items-center gap-2"><MessageSquare size={14} className="group-hover:animate-bounce"/> Обсуждение ({(bug.replies || []).length})</span>
+                            <span className="flex items-center gap-2"><MessageSquare size={14}/> Обсуждение ({(bug.replies || []).length})</span>
                             <div className={`transition-transform duration-300 ${openChats[bug.id] ? 'rotate-180' : ''}`}><ChevronDown size={14}/></div>
                           </button>
 
                           <div className={`grid transition-all duration-500 ease-in-out ${openChats[bug.id] ? 'grid-rows-[1fr] mt-5 opacity-100' : 'grid-rows-[0fr] mt-0 opacity-0 overflow-hidden'}`}>
                             <div className="overflow-hidden space-y-3">
-                              <div className="max-h-64 overflow-y-auto pr-2 space-y-3 scroll-smooth">
+                              <div className="max-h-64 overflow-y-auto pr-2 space-y-3 scroll-smooth scrollbar-thin scrollbar-thumb-white/10">
                                 {(bug.replies || []).map((r, i) => (
-                                  <div key={i} className={`p-4 rounded-2xl border transition-all ${r.isAdminReply ? 'bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                                  <div key={i} className={`p-4 rounded-2xl border transition-all ${r.isAdminReply ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                                     <div className="flex justify-between items-center mb-1.5">
                                       <span className={`text-[10px] font-black uppercase tracking-wider ${r.isAdminReply ? 'text-cyan-400' : 'text-blue-500'}`}>{r.author}</span>
                                       <span className="text-[10px] text-gray-600 font-bold italic">{new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
@@ -456,29 +469,28 @@ export default function App() {
                               {bug.status === 'open' ? (
                                 <div className="flex gap-2 pt-2">
                                   <input 
-                                    type="text" placeholder="Написать сообщение..." value={replyText[bug.id] || ''} onChange={(e) => setReplyText({...replyText, [bug.id]: e.target.value})}
+                                    type="text" placeholder="Написать..." value={replyText[bug.id] || ''} onChange={(e) => setReplyText({...replyText, [bug.id]: e.target.value})}
                                     onKeyPress={(e) => e.key === 'Enter' && sendReply(bug.id, bug.replies)}
                                     className="flex-1 px-4 py-3 bg-black/60 border border-white/10 rounded-2xl text-sm focus:border-blue-600 outline-none transition-all"
                                   />
                                   <button onClick={() => sendReply(bug.id, bug.replies)} className="px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl transition-all shadow-lg active:scale-95"><ChevronRight size={20}/></button>
                                 </div>
-                              ) : <div className="text-center py-4 bg-black/30 rounded-2xl border border-white/5 text-[10px] font-black text-gray-600 uppercase tracking-widest">Обсуждение закрыто: Баг Исправлен</div>}
+                              ) : <div className="text-center py-4 bg-black/30 rounded-2xl border border-white/5 text-[10px] font-black text-gray-600 uppercase tracking-widest">Чат закрыт</div>}
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* АДМИН ПАНЕЛЬ (Dev Panel) */}
                       {isAdmin && (
                         <div className="flex flex-col gap-3 p-4 bg-cyan-950/20 border border-cyan-500/40 rounded-3xl shadow-2xl h-fit w-full sm:w-auto card-anim">
                           <div className="flex items-center gap-2 mb-1 justify-center sm:justify-start">
                             <ShieldAlert size={14} className="text-cyan-400 animate-pulse" />
-                            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Dev Panel</span>
+                            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Admin</span>
                           </div>
-                          <button onClick={() => fix(bug.id, bug.status)} className={`flex-1 sm:flex-none p-3.5 rounded-2xl border transition-all active:scale-90 flex justify-center items-center shadow-lg ${bug.status === 'open' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30'}`}>
+                          <button onClick={() => fix(bug.id, bug.status)} className={`p-3.5 rounded-2xl border transition-all active:scale-90 flex justify-center items-center shadow-lg ${bug.status === 'open' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30'}`}>
                             {bug.status === 'open' ? <CheckCircle2 size={22}/> : <Clock size={22}/>}
                           </button>
-                          <button onClick={() => remove(bug.id)} className="flex-1 sm:flex-none p-3.5 bg-red-500/20 text-red-400 border border-red-500/40 rounded-2xl hover:bg-red-500/30 transition-all active:scale-90 shadow-lg flex justify-center items-center">
+                          <button onClick={() => remove(bug.id)} className="p-3.5 bg-red-500/20 text-red-400 border border-red-500/40 rounded-2xl hover:bg-red-500/30 transition-all active:scale-90 shadow-lg flex justify-center items-center">
                             <Trash2 size={22}/>
                           </button>
                         </div>
